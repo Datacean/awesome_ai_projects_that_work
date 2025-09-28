@@ -26,8 +26,8 @@ How to run
 Example install & run (replace with your environment commands):
 
     conda create -n datacean python=3.12 -y
-	pip install -r requirements.txt
     conda activate datacean
+	pip install -r requirements.txt
 	jupyter notebook "Intro_CNN_PyTorch.ipynb"
 
 If you plan to use CUDA-enabled PyTorch, follow the official PyTorch install instructions for the correct CUDA version on your machine (the notebook contains an example `pip` command using the PyTorch download index URL).
