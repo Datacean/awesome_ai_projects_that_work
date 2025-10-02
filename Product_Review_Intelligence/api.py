@@ -127,13 +127,17 @@ app = FastAPI(
     version="1.0.0"
 )
 
+class TopicItem(BaseModel):
+    topic: str
+    confidence: float
+
 class ReviewRequest(BaseModel):
     review_text: str
 
 class ReviewResponse(BaseModel):
     sentiment: str
     sentiment_confidence: float
-    topics: List[Dict[str, float]]
+    topics: List[TopicItem]
     needs_urgent_response: bool
     urgency_confidence: float
 
