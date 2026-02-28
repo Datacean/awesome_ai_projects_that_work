@@ -141,7 +141,7 @@ def get_filenames_in_folder(folderpath):
         >>> get_filenames_in_folder('C:/run3x/codebase/python/minsc')
         ['paths.py', 'system_info.py', '__init__.py']
     """
-    names = [os.path.basename(x) for x in glob.glob(os.path.join(folderpath, '*'))]
+    names = [os.path.basename(x) for x in glob.glob(os.path.join(folderpath, '*')) if os.path.isfile(x)]
     return sorted(names)
 
 
@@ -234,7 +234,9 @@ def split_dataset_folder(root_folder, dest_folder, sets_names=['train','val'], s
         verbose (bool): Print progress information.
     """
     assert sum(sets_sizes) == 1, "Data set sizes do not sum to 1"
-    for folder in get_filenames_in_folder(root_folder):
+    # List class directories (not files) in root_folder
+    class_folders = sorted(d for d in os.listdir(root_folder) if os.path.isdir(os.path.join(root_folder, d)))
+    for folder in class_folders:
         if verbose: print("Folder: ", folder)
         _create_sets_folders(dest_folder, sets_names, folder)
         files = get_filenames_in_folder(os.path.join(root_folder, folder))
@@ -255,21 +257,23 @@ def convert_image_dataset_to_grayscale(root_folder, dest_folder, verbose=False):
         dest_folder (str): Path where grayscale images will be saved.
         verbose (bool): Print progress information.
     """
+    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
     files = get_files_in_folder_recursively(root_folder)
     for f in files:
+        if os.path.splitext(f)[1].lower() not in IMAGE_EXTENSIONS:
+            if verbose: print("Skipping non-image file: {}".format(f))
+            continue
         filename = os.path.join(root_folder, f)
         if verbose: print("Converting {} to grayscale".format(filename))
-        img = Image.open(filename)
-        img_gray = img.convert('L')
-        dest = os.path.join(dest_folder, f)
         try:
-            img_gray.save(dest)
-        except FileNotFoundError as e:
-            if verbose: print(e)
-            path = os.path.dirname(dest)
-            if verbose: print("Creating folder {}".format(path))
-            os.makedirs(path)
-            img_gray.save(dest)
+            img = Image.open(filename)
+            img_gray = img.convert('L')
+        except Exception as e:
+            if verbose: print("Skipping {}: {}".format(filename, e))
+            continue
+        dest = os.path.join(dest_folder, f)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        img_gray.save(dest)
             
             
 def create_dataset(data_dir, batch_size=32, sets=['train', 'val'], verbose=False):
