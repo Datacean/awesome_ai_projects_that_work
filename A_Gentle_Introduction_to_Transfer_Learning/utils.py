@@ -509,78 +509,75 @@ def download_hymenoptera(out_dir):
     return dest
 
 
-def _list_lsun_categories(tag):
-    """List LSUN categories"""
-    url = 'http://lsun.cs.princeton.edu/htbin/list.cgi?tag=' + tag
-    f = requests.get(url)
-    return json.loads(f.text)
-
-
-def _download_lsun(out_dir, category, set_name, tag):
-    """Download a specific category of LSUN"""
-    url = 'http://lsun.cs.princeton.edu/htbin/download.cgi?tag={tag}' \
-          '&category={category}&set={set_name}'.format(**locals())
-    if set_name == 'test':
-        out_name = 'test_lmdb.zip'
-    else:
-        out_name = '{category}_{set_name}_lmdb.zip'.format(**locals())
-    _make_directory(out_dir)
-    out_path = os.path.join(out_dir, out_name)
-    cmd = ['curl', url, '-o', out_path]
-    print('Downloading', category, set_name, 'set')
-    subprocess.call(cmd)  
-    
-    
-def download_lsun_dataset(out_dir):
-    """Download LSUN dataset and create pytorch folder structure
-    source: https://github.com/fyu/lsun
-    """
-    tag = 'latest'
-    categories = _list_lsun_categories(tag)
-    print('Downloading', len(categories), 'categories')
-    for category in categories:
-        _download_lsun(out_dir, category, 'train', tag)
-        _download_lsun(out_dir, category, 'val', tag)
-    #_download_lsun(args.out_dir, '', 'test', args.tag)
-
-    
 def download_caltech256(out_dir):
-    """Download Caltech256 dataset"""
-    url = 'http://www.vision.caltech.edu/Image_Datasets/Caltech256/256_ObjectCategories.tar'
-    if len(os.listdir(out_dir)) != 0:
-        print("Dataset already donwloaded in {}".format(out_dir)) 
-    else:
-        print("Downloading {}".format(url))
-        filepath = os.path.join(out_dir, 'delete.me')
-        fname, h = urlretrieve(url, filepath)
-        print("Extracting files from {}".format(fname))
-        with tarfile.open(fname) as tar:
-            def is_within_directory(directory, target):
-                
-                abs_directory = os.path.abspath(directory)
-                abs_target = os.path.abspath(target)
-            
-                prefix = os.path.commonprefix([abs_directory, abs_target])
-                
-                return prefix == abs_directory
-            
-            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
-            
-                for member in tar.getmembers():
-                    member_path = os.path.join(path, member.name)
-                    if not is_within_directory(path, member_path):
-                        raise Exception("Attempted Path Traversal in Tar File")
-            
-                tar.extractall(path, members, numeric_owner=numeric_owner) 
-                
-            
-            safe_extract(tar, path=out_dir)
-        os.remove(fname)
+    """Download Caltech256 dataset from the official Caltech data repository."""
+    url = 'https://data.caltech.edu/records/nyy15-4j048/files/256_ObjectCategories.tar'
+    dest = os.path.join(out_dir, '256_ObjectCategories')
+    if os.path.isdir(dest) and os.listdir(dest):
+        print(f"Dataset already downloaded in {dest}")
+        return dest
+    _make_directory(out_dir)
+    print(f"Downloading Caltech 256 from {url}")
+    filepath = os.path.join(out_dir, '256_ObjectCategories.tar')
+    urlretrieve(url, filepath)
+    print("Extracting files...")
+    with tarfile.open(filepath) as tar:
+        tar.extractall(path=out_dir, filter='data')
+    os.remove(filepath)
+    print(f"Dataset ready at {dest}")
+    return dest
 
-    
-  
 
-    
-    
-    
-    
+def _load_kaggle_env():
+    """Load Kaggle credentials from .env file if not already set."""
+    if os.environ.get('KAGGLE_KEY'):
+        return
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    if os.path.isfile(env_path):
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    if value:
+                        os.environ[key] = value
+
+
+def download_simpsons(out_dir):
+    """Download the Simpsons Characters dataset from Kaggle.
+    Requires kagglehub and a valid Kaggle API key (via .env or ~/.kaggle/kaggle.json).
+    """
+    _load_kaggle_env()
+    import kagglehub
+    dest = os.path.join(out_dir, 'simpsons')
+    if os.path.isdir(dest) and os.listdir(dest):
+        print(f"Dataset already downloaded in {dest}")
+        return dest
+    _make_directory(out_dir)
+    print("Downloading Simpsons dataset from Kaggle...")
+    path = kagglehub.dataset_download("alexattia/the-simpsons-characters-dataset")
+    print(f"Downloaded to cache: {path}")
+    # Copy to our data directory
+    shutil.copytree(path, dest, dirs_exist_ok=True)
+    print(f"Dataset ready at {dest}")
+    return dest
+
+
+def download_dogs_vs_cats(out_dir):
+    """Download the Dogs vs Cats dataset from Kaggle.
+    Requires kagglehub and a valid Kaggle API key (via .env or ~/.kaggle/kaggle.json).
+    """
+    _load_kaggle_env()
+    import kagglehub
+    dest = os.path.join(out_dir, 'dogs_vs_cats')
+    if os.path.isdir(dest) and os.listdir(dest):
+        print(f"Dataset already downloaded in {dest}")
+        return dest
+    _make_directory(out_dir)
+    print("Downloading Dogs vs Cats dataset from Kaggle...")
+    path = kagglehub.dataset_download("karakaggle/kaggle-cat-vs-dog-dataset")
+    print(f"Downloaded to cache: {path}")
+    shutil.copytree(path, dest, dirs_exist_ok=True)
+    print(f"Dataset ready at {dest}")
+    return dest
+

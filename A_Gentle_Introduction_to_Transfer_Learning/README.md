@@ -39,16 +39,27 @@ python finetune.py -d ./data/hymenoptera_data -b 32 -m resnet18 -lr 0.001 -e 15 
 python finetune.py -d ./data/hymenoptera_data -b 32 -m resnet18 -lr 0.001 -e 15 -f 0
 ```
 
+## Kaggle Setup (for Simpsons and Dogs vs Cats datasets)
+
+1. Copy `.env.template` to `.env` and fill in your Kaggle credentials:
+
+```bash
+cp .env.template .env
+# Edit .env with your KAGGLE_USERNAME and KAGGLE_KEY
+```
+
+You can find your API key at https://www.kaggle.com/settings (Create New Token).
+
 ## Datasets Used
 
-| Dataset | Classes | Images | Source |
-|---------|:-------:|:------:|--------|
-| Hymenoptera | 2 | 397 | [PyTorch tutorial](https://download.pytorch.org/tutorial/hymenoptera_data.zip) |
-| Simpsons | 20 | 19,548 | [Kaggle](https://www.kaggle.com/alexattia/the-simpsons-characters-dataset) |
-| Dogs vs Cats | 2 | 25,000 | [Kaggle](https://www.kaggle.com/c/dogs-vs-cats) |
-| Caltech 256 | 257 | 30,607 | [Caltech](http://www.vision.caltech.edu/Image_Datasets/Caltech256/) |
+All datasets can be downloaded automatically from the notebook (`data_prep.ipynb`):
 
-The Hymenoptera dataset downloads automatically. For the others, download from the links above and use `data_prep.ipynb` to split into train/val folders.
+| Dataset | Classes | Images | Source | Download |
+|---------|:-------:|:------:|--------|----------|
+| Hymenoptera | 2 | 397 | [PyTorch tutorial](https://download.pytorch.org/tutorial/hymenoptera_data.zip) | Automatic |
+| Simpsons | 20 | 19,548 | [Kaggle](https://www.kaggle.com/alexattia/the-simpsons-characters-dataset) | Requires Kaggle API key |
+| Dogs vs Cats | 2 | 25,000 | [Kaggle](https://www.kaggle.com/datasets/karakaggle/kaggle-cat-vs-dog-dataset) | Requires Kaggle API key |
+| Caltech 256 | 257 | 30,607 | [Caltech](https://data.caltech.edu/records/nyy15-4j048) | Automatic |
 
 ## Results (ResNet18, 15 epochs)
 
