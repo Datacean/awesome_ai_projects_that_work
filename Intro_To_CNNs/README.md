@@ -23,11 +23,11 @@ How to run
 2. Install the requirements listed in `requirements.txt`.
 3. Open `Intro_CNN_PyTorch.ipynb` with Jupyter Notebook or JupyterLab and run the cells.
 
-Example install & run (replace with your environment commands):
+Example install & run:
 
-    conda create -n datacean python=3.12 -y
-    conda activate datacean
-	pip install -r requirements.txt
-	jupyter notebook "Intro_CNN_PyTorch.ipynb"
+    uv venv datacean --python 3.12
+    source datacean/bin/activate
+    uv pip install -r requirements.txt
+    jupyter notebook "Intro_CNN_PyTorch.ipynb"
 
 If you plan to use CUDA-enabled PyTorch, follow the official PyTorch install instructions for the correct CUDA version on your machine (the notebook contains an example `pip` command using the PyTorch download index URL).
