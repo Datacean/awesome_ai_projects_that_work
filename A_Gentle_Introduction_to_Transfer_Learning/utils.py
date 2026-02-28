@@ -9,7 +9,8 @@ import shutil
 import tarfile
 import subprocess
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 from urllib.request import urlretrieve
 from collections import Counter
 import matplotlib.pyplot as plt
@@ -307,10 +308,14 @@ def create_dataset(data_dir, batch_size=32, sets=['train', 'val'], verbose=False
         ]),
     }
     image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in sets}
-    dataloaders = {x: DataLoader(image_datasets[x], 
-                                 batch_size=batch_size, 
-                                 shuffle=True, 
-                                 num_workers=get_number_processors()) 
+    num_workers = get_number_processors()
+    use_cuda = torch.cuda.is_available()
+    dataloaders = {x: DataLoader(image_datasets[x],
+                                 batch_size=batch_size,
+                                 shuffle=(x == 'train'),
+                                 num_workers=num_workers,
+                                 pin_memory=use_cuda,
+                                 persistent_workers=(num_workers > 0))
                    for x in sets}
 
     if verbose:
@@ -383,6 +388,7 @@ def finetune(dataloaders, model_name, sets, num_epochs, num_gpus, lr, momentum, 
         model_ft = nn.DataParallel(model_ft)
     model_ft = model_ft.to(device)
 
+
     #loss
     criterion = nn.CrossEntropyLoss()
 
@@ -428,6 +434,7 @@ def freeze_and_train(dataloaders, model_name, sets, num_epochs, num_gpus, lr, mo
         model_conv = nn.DataParallel(model_conv)
     model_conv = model_conv.to(device)
 
+
     #loss
     criterion = nn.CrossEntropyLoss()
 
@@ -464,6 +471,8 @@ def train_model(dataloaders, model, sets, criterion, optimizer, scheduler, num_e
             'val_loss', and 'cm' (confusion matrices), each a list per epoch.
     """
     device = next(model.parameters()).device
+    use_amp = (device.type == 'cuda')
+    scaler = torch.amp.GradScaler(enabled=use_amp)
     since = time.time()
     dataset_sizes = {x: len(dataloaders[x].dataset) for x in sets}
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -484,29 +493,36 @@ def train_model(dataloaders, model, sets, criterion, optimizer, scheduler, num_e
 
             running_loss = 0.0
             running_corrects = 0
+            all_preds = []
+            all_labels = []
 
             # Iterate over data.
             for inputs, labels in dataloaders[phase]:
-                inputs = inputs.to(device)
-                labels = labels.to(device)
+                inputs = inputs.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True)
 
                 # zero the parameter gradients
-                optimizer.zero_grad()
+                optimizer.zero_grad(set_to_none=True)
 
-                # forward
+                # forward with automatic mixed precision
                 with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
+                    with torch.amp.autocast(device_type=device.type, enabled=use_amp):
+                        outputs = model(inputs)
+                        loss = criterion(outputs, labels)
                     _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
+                        scaler.scale(loss).backward()
+                        scaler.step(optimizer)
+                        scaler.update()
 
                 # statistics
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data).item()
+                if phase == 'val':
+                    all_preds.append(preds.cpu())
+                    all_labels.append(labels.cpu())
 
             if phase == 'train':
                 scheduler.step()
@@ -521,8 +537,12 @@ def train_model(dataloaders, model, sets, criterion, optimizer, scheduler, num_e
             else:
                 metrics['val_acc'].append(epoch_acc)
                 metrics['val_loss'].append(epoch_loss)
-                # Build confusion matrix with numpy
+                # Build confusion matrix
+                all_preds = torch.cat(all_preds).numpy()
+                all_labels = torch.cat(all_labels).numpy()
                 cm = np.zeros((num_classes, num_classes), dtype=int)
+                for pred, label in zip(all_preds, all_labels):
+                    cm[label, pred] += 1
                 metrics['cm'].append(cm)
 
             # deep copy the model
