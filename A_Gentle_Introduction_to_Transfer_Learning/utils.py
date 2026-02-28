@@ -1,33 +1,35 @@
-import subprocess
 import os
 import sys
 import glob
 import json
+import time
+import copy
+import random
 import shutil
-from PIL import Image
-from collections import Counter
+import tarfile
+import subprocess
 import numpy as np
+from PIL import Image
+from urllib.request import urlretrieve
+from collections import Counter
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
+import torch
+import torch.nn as nn
 import torchvision
 from torchvision import datasets, transforms
 from torchvision import models
-import torch
-import torch.nn as nn
 from torch.optim import lr_scheduler, SGD
 from torch.utils.data import DataLoader
-import time
 from scipy.interpolate import interp1d
-import requests
-from urllib.request import urlretrieve
-import tarfile
-import copy
 
 
 def get_number_processors():
     """Get the number of processors in a CPU.
+    
     Returns:
         num (int): Number of processors.
+    
     Examples:
         >>> get_number_processors()
         4
@@ -41,11 +43,14 @@ def get_number_processors():
 
 
 def get_gpu_name():
-    """Get the GPUs in the system
+    """Get the GPU names in the system.
+
+    Returns:
+        gpu_names (list): List of GPU name strings.
+
     Examples:
         >>> get_gpu_name()
         ['Tesla M60', 'Tesla M60', 'Tesla M60', 'Tesla M60']
-        
     """
     try:
         out_str = subprocess.run(["nvidia-smi", "--query-gpu=gpu_name", "--format=csv"], stdout=subprocess.PIPE).stdout
@@ -57,11 +62,14 @@ def get_gpu_name():
 
 
 def get_gpu_memory():
-    """Get the memory of the GPUs in the system
+    """Get the memory of the GPUs in the system.
+
+    Returns:
+        gpu_memory (list): List of GPU memory strings.
+
     Examples:
         >>> get_gpu_memory()
         ['8123 MiB', '8123 MiB', '8123 MiB', '8123 MiB']
-
     """
     try:
         out_str = subprocess.run(["nvidia-smi", "--query-gpu=memory.total", "--format=csv"], stdout=subprocess.PIPE).stdout
@@ -73,11 +81,14 @@ def get_gpu_memory():
 
         
 def get_cuda_version():
-    """Get the CUDA version
+    """Get the CUDA version.
+
+    Returns:
+        version (str): CUDA version string or a message if CUDA is not found.
+
     Examples:
         >>> get_cuda_version()
         'CUDA Version 8.0.61'
-
     """
     if sys.platform == 'win32':
         raise NotImplementedError("Implement this!")
@@ -96,12 +107,15 @@ def get_cuda_version():
         
     
 def format_dictionary(dct, indent=4):
-    """Formats a dictionary to be printed
+    """Format a dictionary to be printed.
+
     Parameters:
         dct (dict): Dictionary.
         indent (int): Indentation value.
+
     Returns:
-        result (str): Formatted dictionary ready to be printed
+        result (str): Formatted dictionary ready to be printed.
+
     Examples:
         >>> dct = {'bkey':1, 'akey':2}
         >>> print(format_dictionary(dct))
@@ -115,26 +129,31 @@ def format_dictionary(dct, indent=4):
 
 
 def get_filenames_in_folder(folderpath):
-    """ Return the files names in a folder.
+    """Return the file names in a folder.
+
     Parameters:
-        folderpath (str): folder path
+        folderpath (str): Folder path.
+
     Returns:
-        number (list): list of files
+        filenames (list): Sorted list of file names.
+
     Examples:
         >>> get_filenames_in_folder('C:/run3x/codebase/python/minsc')
         ['paths.py', 'system_info.py', '__init__.py']
-
     """
     names = [os.path.basename(x) for x in glob.glob(os.path.join(folderpath, '*'))]
     return sorted(names)
 
 
 def get_files_in_folder_recursively(folderpath):
-    """ Return the files inside a folder recursivaly.
+    """Return the files inside a folder recursively.
+
     Parameters:
-        folderpath (str): folder path
+        folderpath (str): Folder path.
+
     Returns:
-        filelist (list): list of files
+        filelist (list): Sorted list of relative file paths.
+
     Examples:
         >>> get_files_in_folder_recursively(r'C:\\run3x\\codebase\\command_line')
         ['linux\\compress.txt', 'linux\\paths.txt', 'windows\\resources_management.txt']
@@ -146,33 +165,29 @@ def get_files_in_folder_recursively(folderpath):
 
 
 
-def _make_directory(directory):
-    """Make a directory"""
-    if not os.path.isdir(directory):
-        os.makedirs(directory)
-
-        
 def _create_sets_folders(root_folder, sets_names, target_folder):
-    """Create folder structure"""
+    """Create the train/val folder structure for a given class."""
     for s in sets_names:
         dest = os.path.join(root_folder, s, target_folder)
-        _make_directory(dest)
+        os.makedirs(dest, exist_ok=True)
           
                 
 def split_list(py_list, perc_size=[0.8, 0.2], shuffle=False):
-    """Split a list in weighted chunks
+    """Split a list into weighted chunks.
+
     Parameters:
         py_list (list): A list of elements.
-        perc_size (list): The percentual size of each chunk size.
-        shuffle (bool): Shuffle the list or not
+        perc_size (list): The percentage size of each chunk. Must sum to 1.
+        shuffle (bool): Whether to shuffle the list before splitting.
+
     Returns:
         result_list (list of list): A list of lists with the chunks.
+
     Examples:
         >>> split_list(list(range(7)),[0.47,0.33,0.2])
         [[0, 1, 2], [3, 4, 5], [6]]
         >>> split_list(list(range(10)),[0.6,0.4], True)
         [[1, 2, 3, 6, 9, 5], [4, 8, 0, 7]]
-
     """
     assert sum(perc_size) == 1, "Percentage sizes do not sum to 1"
     l = py_list[:]
@@ -194,25 +209,29 @@ def split_list(py_list, perc_size=[0.8, 0.2], shuffle=False):
 
 
 def split_dataset_folder(root_folder, dest_folder, sets_names=['train','val'], sets_sizes=[0.8,0.2], shuffle=False, verbose=False):
-    """Split the folders in a dataset to pytorch format. If the intial format is:
-    --class1
-    ----img1.jpg
-    ----img2.jpg
-    --class2
-    ----img1.jpg
-    ----img2.jpg
-    It transforms it into:
-    --train
-    ----class1
-    ------img1.jpg
-    ----class2
-    ------img1.jpg
-    --val
-    ----class1
-    ------img2.jpg
-    ----class2
-    ------img2.jpg   
+    """Split an image dataset folder into PyTorch ImageFolder format.
 
+    Transforms a flat class-based structure into train/val splits::
+
+        Before:                After:
+        class1/                train/
+          img1.jpg               class1/
+          img2.jpg                 img1.jpg
+        class2/                  class2/
+          img1.jpg                 img1.jpg
+          img2.jpg             val/
+                                 class1/
+                                   img2.jpg
+                                 class2/
+                                   img2.jpg
+
+    Parameters:
+        root_folder (str): Path to the source dataset with one folder per class.
+        dest_folder (str): Path where the split dataset will be created.
+        sets_names (list): Names of the splits (e.g. ['train', 'val']).
+        sets_sizes (list): Proportion of each split. Must sum to 1.
+        shuffle (bool): Whether to shuffle files before splitting.
+        verbose (bool): Print progress information.
     """
     assert sum(sets_sizes) == 1, "Data set sizes do not sum to 1"
     for folder in get_filenames_in_folder(root_folder):
@@ -229,7 +248,13 @@ def split_dataset_folder(root_folder, dest_folder, sets_names=['train','val'], s
 
                 
 def convert_image_dataset_to_grayscale(root_folder, dest_folder, verbose=False):
-    """Convert all the images from a dataset in disk to grayscale"""
+    """Convert all images in a dataset folder to grayscale.
+
+    Parameters:
+        root_folder (str): Path to the source dataset.
+        dest_folder (str): Path where grayscale images will be saved.
+        verbose (bool): Print progress information.
+    """
     files = get_files_in_folder_recursively(root_folder)
     for f in files:
         filename = os.path.join(root_folder, f)
@@ -248,8 +273,19 @@ def convert_image_dataset_to_grayscale(root_folder, dest_folder, verbose=False):
             
             
 def create_dataset(data_dir, batch_size=32, sets=['train', 'val'], verbose=False):
-    """Create a dataset object given the path. On data_dir there should be a train and validation folder
-    and in each of them there should be the folders containing the data. One folder for each class
+    """Create PyTorch DataLoaders from an ImageFolder dataset.
+
+    Expects ``data_dir`` to contain subdirectories named after each set (e.g.
+    ``train/``, ``val/``), each with one folder per class.
+
+    Parameters:
+        data_dir (str): Root path of the dataset.
+        batch_size (int): Batch size for the DataLoaders.
+        sets (list): Names of the dataset splits to load.
+        verbose (bool): Print dataset statistics.
+
+    Returns:
+        dataloaders (dict): Dictionary mapping set names to DataLoader objects.
     """
     data_transforms = {
         'train': transforms.Compose([
@@ -286,7 +322,13 @@ def create_dataset(data_dir, batch_size=32, sets=['train', 'val'], verbose=False
 
 
 def plot_pytorch_data_stream(dataobject, max_images=8, title=True):
-    """Plot a batch of images"""
+    """Plot a batch of images from a PyTorch DataLoader.
+
+    Parameters:
+        dataobject (DataLoader): A PyTorch DataLoader.
+        max_images (int): Maximum number of images to display.
+        title (bool): Whether to show class names as the plot title.
+    """
     inputs, classes = next(iter(dataobject))  
     if max_images > dataobject.batch_size:
         max_images = dataobject.batch_size
@@ -308,7 +350,23 @@ def plot_pytorch_data_stream(dataobject, max_images=8, title=True):
 
         
 def finetune(dataloaders, model_name, sets, num_epochs, num_gpus, lr, momentum, lr_step, lr_epochs, verbose=False):
-    """Finetune all the layers of a model using a dataset loader. """
+    """Finetune all layers of a pretrained model on a new dataset.
+
+    Parameters:
+        dataloaders (dict): Dictionary of DataLoaders keyed by set name.
+        model_name (str): Name of the torchvision model (e.g. 'resnet18').
+        sets (list): Dataset split names (e.g. ['train', 'val']).
+        num_epochs (int): Number of training epochs.
+        num_gpus (int): Number of GPUs to use.
+        lr (float): Learning rate.
+        momentum (float): SGD momentum.
+        lr_step (float): Factor to decay the learning rate by.
+        lr_epochs (int): Number of epochs between each LR decay step.
+        verbose (bool): Print training progress.
+
+    Returns:
+        model (nn.Module): The finetuned model with the best validation weights.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #Class adaptation
     num_class = len(dataloaders[sets[0]].dataset.class_to_idx)
@@ -335,7 +393,23 @@ def finetune(dataloaders, model_name, sets, num_epochs, num_gpus, lr, momentum, 
 
 
 def freeze_and_train(dataloaders, model_name, sets, num_epochs, num_gpus, lr, momentum, lr_step, lr_epochs, verbose=False):
-    """Freezes all layers but the last one and train the last layer using a dataset loader"""
+    """Freeze all layers except the last one and train only the final classification layer.
+
+    Parameters:
+        dataloaders (dict): Dictionary of DataLoaders keyed by set name.
+        model_name (str): Name of the torchvision model (e.g. 'resnet18').
+        sets (list): Dataset split names (e.g. ['train', 'val']).
+        num_epochs (int): Number of training epochs.
+        num_gpus (int): Number of GPUs to use.
+        lr (float): Learning rate.
+        momentum (float): SGD momentum.
+        lr_step (float): Factor to decay the learning rate by.
+        lr_epochs (int): Number of epochs between each LR decay step.
+        verbose (bool): Print training progress.
+
+    Returns:
+        model (nn.Module): The trained model with the best validation weights.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #Class adaptation
     num_class = len(dataloaders[sets[0]].dataset.class_to_idx)
@@ -368,7 +442,23 @@ def freeze_and_train(dataloaders, model_name, sets, num_epochs, num_gpus, lr, mo
 
 
 def train_model(dataloaders, model, sets, criterion, optimizer, scheduler, num_epochs=25, verbose=False):
-    """Train a pytorch model"""
+    """Train a PyTorch model and track metrics per epoch.
+
+    Parameters:
+        dataloaders (dict): Dictionary of DataLoaders keyed by set name.
+        model (nn.Module): The model to train.
+        sets (list): Dataset split names (e.g. ['train', 'val']).
+        criterion: Loss function.
+        optimizer: Optimizer.
+        scheduler: Learning rate scheduler.
+        num_epochs (int): Number of training epochs.
+        verbose (bool): Print training progress.
+
+    Returns:
+        model (nn.Module): The model with the best validation weights loaded.
+        metrics (dict): Dictionary with keys 'train_acc', 'val_acc', 'train_loss',
+            'val_loss', and 'cm' (confusion matrices), each a list per epoch.
+    """
     device = next(model.parameters()).device
     since = time.time()
     dataset_sizes = {x: len(dataloaders[x].dataset) for x in sets}
@@ -447,15 +537,24 @@ def train_model(dataloaders, model, sets, criterion, optimizer, scheduler, num_e
 
 
 def available_models():
-    """Return available pytorch models, callable using `models.__dict__[name]`"""
+    """Return available torchvision model names, callable via ``models.__dict__[name]``.
+
+    Returns:
+        model_names (list): Sorted list of model name strings.
+    """
     model_names = sorted(name for name in models.__dict__  if name.islower() and not name.startswith("__") and 
                          callable(models.__dict__[name]))
     return model_names
 
 
 def plot_metrics(metrics, title=None):
-    """Plot metrics from training. metrics is a dict containing 'train_acc', 'val_acc', 'train_loss' and
-    'val_loss', each of them contains the metrics values in a list"""
+    """Plot training and validation accuracy and loss curves.
+
+    Parameters:
+        metrics (dict): Dictionary with keys 'train_acc', 'val_acc', 'train_loss'
+            and 'val_loss', each containing a list of values per epoch.
+        title (str or None): Optional title for the plot.
+    """
     max_epochs = len(metrics['train_acc']) + 1
     epochs = range(1, max_epochs)
     epochs_dx = np.linspace(epochs[0], epochs[-1], num=max_epochs*4, endpoint=True)
@@ -490,14 +589,21 @@ def plot_metrics(metrics, title=None):
     
     
 def download_hymenoptera(out_dir):
-    """Download the Hymenoptera dataset from the PyTorch tutorial."""
+    """Download the Hymenoptera dataset (ants vs bees) from the PyTorch tutorial.
+
+    Parameters:
+        out_dir (str): Directory where the dataset will be extracted.
+
+    Returns:
+        dest (str): Path to the extracted dataset folder.
+    """
     import zipfile
     url = 'https://download.pytorch.org/tutorial/hymenoptera_data.zip'
     dest = os.path.join(out_dir, 'hymenoptera_data')
     if os.path.isdir(dest) and os.listdir(dest):
         print("Dataset already downloaded in {}".format(dest))
         return dest
-    _make_directory(out_dir)
+    os.makedirs(out_dir, exist_ok=True)
     print("Downloading {}".format(url))
     filepath = os.path.join(out_dir, 'hymenoptera_data.zip')
     urlretrieve(url, filepath)
@@ -510,13 +616,20 @@ def download_hymenoptera(out_dir):
 
 
 def download_caltech256(out_dir):
-    """Download Caltech256 dataset from the official Caltech data repository."""
+    """Download the Caltech 256 dataset from the official Caltech data repository.
+
+    Parameters:
+        out_dir (str): Directory where the dataset will be extracted.
+
+    Returns:
+        dest (str): Path to the extracted dataset folder.
+    """
     url = 'https://data.caltech.edu/records/nyy15-4j048/files/256_ObjectCategories.tar'
     dest = os.path.join(out_dir, '256_ObjectCategories')
     if os.path.isdir(dest) and os.listdir(dest):
         print(f"Dataset already downloaded in {dest}")
         return dest
-    _make_directory(out_dir)
+    os.makedirs(out_dir, exist_ok=True)
     print(f"Downloading Caltech 256 from {url}")
     filepath = os.path.join(out_dir, '256_ObjectCategories.tar')
     urlretrieve(url, filepath)
@@ -545,7 +658,14 @@ def _load_kaggle_env():
 
 def download_simpsons(out_dir):
     """Download the Simpsons Characters dataset from Kaggle.
+
     Requires kagglehub and a valid Kaggle API key (via .env or ~/.kaggle/kaggle.json).
+
+    Parameters:
+        out_dir (str): Directory where the dataset will be saved.
+
+    Returns:
+        dest (str): Path to the dataset folder.
     """
     _load_kaggle_env()
     import kagglehub
@@ -553,7 +673,7 @@ def download_simpsons(out_dir):
     if os.path.isdir(dest) and os.listdir(dest):
         print(f"Dataset already downloaded in {dest}")
         return dest
-    _make_directory(out_dir)
+    os.makedirs(out_dir, exist_ok=True)
     print("Downloading Simpsons dataset from Kaggle...")
     path = kagglehub.dataset_download("alexattia/the-simpsons-characters-dataset")
     print(f"Downloaded to cache: {path}")
@@ -565,7 +685,14 @@ def download_simpsons(out_dir):
 
 def download_dogs_vs_cats(out_dir):
     """Download the Dogs vs Cats dataset from Kaggle.
+
     Requires kagglehub and a valid Kaggle API key (via .env or ~/.kaggle/kaggle.json).
+
+    Parameters:
+        out_dir (str): Directory where the dataset will be saved.
+
+    Returns:
+        dest (str): Path to the dataset folder.
     """
     _load_kaggle_env()
     import kagglehub
@@ -573,7 +700,7 @@ def download_dogs_vs_cats(out_dir):
     if os.path.isdir(dest) and os.listdir(dest):
         print(f"Dataset already downloaded in {dest}")
         return dest
-    _make_directory(out_dir)
+    os.makedirs(out_dir, exist_ok=True)
     print("Downloading Dogs vs Cats dataset from Kaggle...")
     path = kagglehub.dataset_download("karakaggle/kaggle-cat-vs-dog-dataset")
     print(f"Downloaded to cache: {path}")
