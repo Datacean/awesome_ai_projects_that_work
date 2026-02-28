@@ -110,7 +110,7 @@ def get_cuda_version():
 def format_dictionary(dct, indent=4):
     """Format a dictionary to be printed.
 
-    Parameters:
+    Args:
         dct (dict): Dictionary.
         indent (int): Indentation value.
 
@@ -132,7 +132,7 @@ def format_dictionary(dct, indent=4):
 def get_filenames_in_folder(folderpath):
     """Return the file names in a folder.
 
-    Parameters:
+    Args:
         folderpath (str): Folder path.
 
     Returns:
@@ -149,7 +149,7 @@ def get_filenames_in_folder(folderpath):
 def get_files_in_folder_recursively(folderpath):
     """Return the files inside a folder recursively.
 
-    Parameters:
+    Args:
         folderpath (str): Folder path.
 
     Returns:
@@ -176,7 +176,7 @@ def _create_sets_folders(root_folder, sets_names, target_folder):
 def split_list(py_list, perc_size=[0.8, 0.2], shuffle=False):
     """Split a list into weighted chunks.
 
-    Parameters:
+    Args:
         py_list (list): A list of elements.
         perc_size (list): The percentage size of each chunk. Must sum to 1.
         shuffle (bool): Whether to shuffle the list before splitting.
@@ -226,7 +226,7 @@ def split_dataset_folder(root_folder, dest_folder, sets_names=['train','val'], s
                                  class2/
                                    img2.jpg
 
-    Parameters:
+    Args:
         root_folder (str): Path to the source dataset with one folder per class.
         dest_folder (str): Path where the split dataset will be created.
         sets_names (list): Names of the splits (e.g. ['train', 'val']).
@@ -250,10 +250,44 @@ def split_dataset_folder(root_folder, dest_folder, sets_names=['train','val'], s
                 shutil.copy2(orig, dest)
 
                 
+def validate_image_dataset(root_folder, remove=False, verbose=False):
+    """Validate all images in a dataset folder, reporting or removing corrupt files.
+
+    Args:
+        root_folder (str): Path to the dataset.
+        remove (bool): If True, delete corrupt files. If False, only report them.
+        verbose (bool): Print progress information.
+
+    Returns:
+        list: Paths of corrupt or truncated files found.
+    """
+    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
+    bad_files = []
+    files = get_files_in_folder_recursively(root_folder)
+    for f in files:
+        if os.path.splitext(f)[1].lower() not in IMAGE_EXTENSIONS:
+            continue
+        filepath = os.path.join(root_folder, f)
+        try:
+            img = Image.open(filepath)
+            img.verify()
+        except Exception as e:
+            if verbose:
+                print("Corrupt image {}: {}".format(filepath, e))
+            bad_files.append(filepath)
+            if remove:
+                os.remove(filepath)
+                if verbose:
+                    print("Removed {}".format(filepath))
+    if verbose:
+        print("Validation complete: {}/{} bad files found.".format(len(bad_files), len(files)))
+    return bad_files
+
+
 def convert_image_dataset_to_grayscale(root_folder, dest_folder, verbose=False):
     """Convert all images in a dataset folder to grayscale.
 
-    Parameters:
+    Args:
         root_folder (str): Path to the source dataset.
         dest_folder (str): Path where grayscale images will be saved.
         verbose (bool): Print progress information.
@@ -283,7 +317,7 @@ def create_dataset(data_dir, batch_size=32, sets=['train', 'val'], verbose=False
     Expects ``data_dir`` to contain subdirectories named after each set (e.g.
     ``train/``, ``val/``), each with one folder per class.
 
-    Parameters:
+    Args:
         data_dir (str): Root path of the dataset.
         batch_size (int): Batch size for the DataLoaders.
         sets (list): Names of the dataset splits to load.
@@ -333,7 +367,7 @@ def create_dataset(data_dir, batch_size=32, sets=['train', 'val'], verbose=False
 def plot_pytorch_data_stream(dataobject, max_images=8, title=True):
     """Plot a batch of images from a PyTorch DataLoader.
 
-    Parameters:
+    Args:
         dataobject (DataLoader): A PyTorch DataLoader.
         max_images (int): Maximum number of images to display.
         title (bool): Whether to show class names as the plot title.
@@ -361,7 +395,7 @@ def plot_pytorch_data_stream(dataobject, max_images=8, title=True):
 def finetune(dataloaders, model_name, sets, num_epochs, num_gpus, lr, momentum, lr_step, lr_epochs, verbose=False):
     """Finetune all layers of a pretrained model on a new dataset.
 
-    Parameters:
+    Args:
         dataloaders (dict): Dictionary of DataLoaders keyed by set name.
         model_name (str): Name of the torchvision model (e.g. 'resnet18').
         sets (list): Dataset split names (e.g. ['train', 'val']).
@@ -405,7 +439,7 @@ def finetune(dataloaders, model_name, sets, num_epochs, num_gpus, lr, momentum, 
 def freeze_and_train(dataloaders, model_name, sets, num_epochs, num_gpus, lr, momentum, lr_step, lr_epochs, verbose=False):
     """Freeze all layers except the last one and train only the final classification layer.
 
-    Parameters:
+    Args:
         dataloaders (dict): Dictionary of DataLoaders keyed by set name.
         model_name (str): Name of the torchvision model (e.g. 'resnet18').
         sets (list): Dataset split names (e.g. ['train', 'val']).
@@ -455,7 +489,7 @@ def freeze_and_train(dataloaders, model_name, sets, num_epochs, num_gpus, lr, mo
 def train_model(dataloaders, model, sets, criterion, optimizer, scheduler, num_epochs=25, verbose=False):
     """Train a PyTorch model and track metrics per epoch.
 
-    Parameters:
+    Args:
         dataloaders (dict): Dictionary of DataLoaders keyed by set name.
         model (nn.Module): The model to train.
         sets (list): Dataset split names (e.g. ['train', 'val']).
@@ -574,7 +608,7 @@ def available_models():
 def plot_metrics(metrics, title=None):
     """Plot training and validation accuracy and loss curves.
 
-    Parameters:
+    Args:
         metrics (dict): Dictionary with keys 'train_acc', 'val_acc', 'train_loss'
             and 'val_loss', each containing a list of values per epoch.
         title (str or None): Optional title for the plot.
@@ -615,7 +649,7 @@ def plot_metrics(metrics, title=None):
 def download_hymenoptera(out_dir):
     """Download the Hymenoptera dataset (ants vs bees) from the PyTorch tutorial.
 
-    Parameters:
+    Args:
         out_dir (str): Directory where the dataset will be extracted.
 
     Returns:
@@ -642,7 +676,7 @@ def download_hymenoptera(out_dir):
 def download_caltech256(out_dir):
     """Download the Caltech 256 dataset from the official Caltech data repository.
 
-    Parameters:
+    Args:
         out_dir (str): Directory where the dataset will be extracted.
 
     Returns:
@@ -685,7 +719,7 @@ def download_simpsons(out_dir):
 
     Requires kagglehub and a valid Kaggle API key (via .env or ~/.kaggle/kaggle.json).
 
-    Parameters:
+    Args:
         out_dir (str): Directory where the dataset will be saved.
 
     Returns:
@@ -712,7 +746,7 @@ def download_dogs_vs_cats(out_dir):
 
     Requires kagglehub and a valid Kaggle API key (via .env or ~/.kaggle/kaggle.json).
 
-    Parameters:
+    Args:
         out_dir (str): Directory where the dataset will be saved.
 
     Returns:

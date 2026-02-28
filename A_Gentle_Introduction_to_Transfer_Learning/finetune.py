@@ -5,10 +5,9 @@
 
 
 import sys
-import os
-import numpy as np
 import torch
 import argparse
+import numpy as np
 from utils import (get_gpu_name, get_number_processors, create_dataset,
                    available_models, finetune, freeze_and_train, get_gpu_memory,
                    get_cuda_version)
