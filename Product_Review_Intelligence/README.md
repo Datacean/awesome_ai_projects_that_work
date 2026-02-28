@@ -14,7 +14,9 @@ AI-powered system to automatically analyze product reviews for sentiment, topics
 ### 1. Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+uv venv datacean --python 3.12
+source datacean/bin/activate
+uv pip install -r requirements.txt
 ```
 
 ### 2. Run the API
