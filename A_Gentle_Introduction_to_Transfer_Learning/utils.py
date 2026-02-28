@@ -342,14 +342,14 @@ def create_dataset(data_dir, batch_size=32, sets=['train', 'val'], verbose=False
         ]),
     }
     image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in sets}
-    num_workers = get_number_processors()
+    num_workers = min(get_number_processors(), 4)
     use_cuda = torch.cuda.is_available()
     dataloaders = {x: DataLoader(image_datasets[x],
                                  batch_size=batch_size,
                                  shuffle=(x == 'train'),
                                  num_workers=num_workers,
                                  pin_memory=use_cuda,
-                                 persistent_workers=(num_workers > 0))
+                                 persistent_workers=False)
                    for x in sets}
 
     if verbose:
