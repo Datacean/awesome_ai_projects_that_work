@@ -288,6 +288,7 @@ def validate_image_dataset(root_folder, remove=False, verbose=False):
         finally:
             if img is not None:
                 img.close()
+    ImageFile.LOAD_TRUNCATED_IMAGES = orig_truncated
     if verbose:
         print("Validation complete: {}/{} bad files found.".format(len(bad_files), len(files)))
     return bad_files
@@ -351,7 +352,7 @@ def create_dataset(data_dir, batch_size=32, sets=['train', 'val'], verbose=False
         ]),
     }
     image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in sets}
-    num_workers = min(get_number_processors(), 4)
+    num_workers = get_number_processors() // 2
     use_cuda = torch.cuda.is_available()
     dataloaders = {x: DataLoader(image_datasets[x],
                                  batch_size=batch_size,
