@@ -261,7 +261,8 @@ def validate_image_dataset(root_folder, remove=False, verbose=False):
     Returns:
         list: Paths of corrupt or truncated files found.
     """
-    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
+    import warnings
+    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff', '.webp'}
     bad_files = []
     files = get_files_in_folder_recursively(root_folder)
     for f in files:
@@ -269,11 +270,13 @@ def validate_image_dataset(root_folder, remove=False, verbose=False):
             continue
         filepath = os.path.join(root_folder, f)
         try:
-            img = Image.open(filepath)
-            img.verify()
+            with warnings.catch_warnings():
+                warnings.filterwarnings("error")
+                img = Image.open(filepath)
+                img.load()  # fully decode pixel data and EXIF
         except Exception as e:
             if verbose:
-                print("Corrupt image {}: {}".format(filepath, e))
+                print("Bad image {}: {}".format(filepath, e))
             bad_files.append(filepath)
             if remove:
                 os.remove(filepath)
