@@ -265,13 +265,16 @@ def validate_image_dataset(root_folder, remove=False, verbose=False):
     IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff', '.webp'}
     bad_files = []
     files = get_files_in_folder_recursively(root_folder)
+    orig_truncated = ImageFile.LOAD_TRUNCATED_IMAGES
+    ImageFile.LOAD_TRUNCATED_IMAGES = False
     for f in files:
         if os.path.splitext(f)[1].lower() not in IMAGE_EXTENSIONS:
             continue
         filepath = os.path.join(root_folder, f)
+        img = None
         try:
             with warnings.catch_warnings():
-                warnings.filterwarnings("error")
+                warnings.filterwarnings("error", category=UserWarning)
                 img = Image.open(filepath)
                 img.load()  # fully decode pixel data and EXIF
         except Exception as e:
@@ -282,6 +285,9 @@ def validate_image_dataset(root_folder, remove=False, verbose=False):
                 os.remove(filepath)
                 if verbose:
                     print("Removed {}".format(filepath))
+        finally:
+            if img is not None:
+                img.close()
     if verbose:
         print("Validation complete: {}/{} bad files found.".format(len(bad_files), len(files)))
     return bad_files
