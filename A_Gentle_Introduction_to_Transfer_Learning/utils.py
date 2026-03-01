@@ -89,22 +89,11 @@ def get_cuda_version():
 
     Examples:
         >>> get_cuda_version()
-        'CUDA Version 8.0.61'
+        'CUDA 12.8'
     """
-    if sys.platform == 'win32':
-        raise NotImplementedError("Implement this!")
-    elif sys.platform == 'linux':
-        path = '/usr/local/cuda/version.txt'
-        if os.path.isfile(path):
-            with open(path, 'r') as f:
-                data = f.read().replace('\n','')
-            return data
-        else:
-            return "No CUDA in this machine"
-    elif sys.platform == 'darwin':
-        raise NotImplementedError("Find a Mac with GPU and implement this!")
-    else:
-        raise ValueError("Not in Windows, Linux or Mac")
+    if torch.cuda.is_available():
+        return "CUDA {}".format(torch.version.cuda)
+    return "No CUDA in this machine"
         
     
 def format_dictionary(dct, indent=4):
