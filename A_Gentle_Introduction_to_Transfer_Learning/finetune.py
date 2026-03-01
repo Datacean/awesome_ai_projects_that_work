@@ -1,7 +1,7 @@
 
 # A Gentle Introduction to Transfer Learning for Image Classification
 # Example of use:
-# python finetune.py -d ./data/hymenoptera_data -b 64 -m resnet18 -lr 0.001 -g 1 -e 15 -f 0
+# python finetune.py -d ./data/hymenoptera_data -b 256 -m resnet18 -lr 0.002 -g 1 -e 15 -f 0
 
 
 import sys

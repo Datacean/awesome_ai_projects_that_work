@@ -33,10 +33,10 @@ jupyter notebook Intro_Transfer_Learning.ipynb
 python -c "from utils import download_hymenoptera; download_hymenoptera('./data')"
 
 # Finetuning
-python finetune.py -d ./data/hymenoptera_data -b 32 -m resnet18 -lr 0.001 -e 15 -f 1
+python finetune.py -d ./data/hymenoptera_data -b 256 -m resnet18 -lr 0.002 -e 15 -f 1
 
 # Freeze and train
-python finetune.py -d ./data/hymenoptera_data -b 32 -m resnet18 -lr 0.001 -e 15 -f 0
+python finetune.py -d ./data/hymenoptera_data -b 256 -m resnet18 -lr 0.002 -e 15 -f 0
 ```
 
 ## Kaggle Setup (for Simpsons and Dogs vs Cats datasets)
@@ -61,15 +61,18 @@ All datasets can be downloaded automatically from the notebook (`data_prep.ipynb
 | Dogs vs Cats | 2 | 25,000 | [Kaggle](https://www.kaggle.com/datasets/karakaggle/kaggle-cat-vs-dog-dataset) | Requires Kaggle API key |
 | Caltech 256 | 257 | 30,607 | [Caltech](https://data.caltech.edu/records/nyy15-4j048) | Automatic |
 
-## Results (ResNet18, 15 epochs)
+## Results (ResNet18, 15 epochs, batch size 256, LR 0.002)
 
 | Dataset | Finetuning Accuracy | Freeze Accuracy |
 |---------|:-------------------:|:---------------:|
-| Hymenoptera | 95.4% | 96.1% |
-| Hymenoptera gray | 92.2% | 90.2% |
-| Simpsons | 92.5% | 64.2% |
-| Dogs vs Cats | 98.9% | 98.1% |
-| Caltech 256 | 67.4% | 54.3% |
+| Hymenoptera | 94.8% | 86.9% |
+| Hymenoptera gray | 84.3% | 64.1% |
+| Simpsons | 95.4% | 69.3% |
+| Simpsons gray | 93.3% | 60.3% |
+| Dogs vs Cats | 99.2% | 98.4% |
+| Dogs vs Cats gray | 99.0% | 98.0% |
+| Caltech 256 | 76.6% | 70.0% |
+| Caltech 256 gray | 72.5% | 59.3% |
 
 ## Project Files
 
